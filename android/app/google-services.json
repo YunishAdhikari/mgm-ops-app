@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "825981197461",
+    "project_id": "mgm-hotel-ops",
+    "storage_bucket": "mgm-hotel-ops.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:825981197461:android:541055a91410f2869bcf9c",
+        "android_client_info": {
+          "package_name": "com.example.mgm_ops_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCaRYUQN9lHHL8KehtdSlsK4zNC6gu6lrg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

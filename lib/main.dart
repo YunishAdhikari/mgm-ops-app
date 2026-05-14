@@ -4,13 +4,42 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'package:table_calendar/table_calendar.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 const String baseUrl = 'http://192.168.0.10:8000/api';
+
+
 // const String baseUrl = 'http://192.168.0.10:8000/api';
 // const String baseUrl = 'http://localhost:8000/api';
 // const String baseUrl = 'http://127.0.0.1:8000/api';
 // const String baseUrl = 'http://localhost:8000/api';
 // const String baseUrl = 'http://127.0.0.1:8000/api';
-void main() {
+// void main() {
+//   runApp(const MgmOpsApp());
+// }
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // print('APP STARTED');
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // FirebaseMessaging messaging = FirebaseMessaging.instance;
+
+  // NotificationSettings settings = await messaging.requestPermission(
+  //   alert: true,
+  //   badge: true,
+  //   sound: true,
+  // );
+
+  // String? token = await messaging.getToken();
+
+  // print('Permission granted: ${settings.authorizationStatus}');
+  // print('FCM TOKEN: $token');
+
   runApp(const MgmOpsApp());
 }
 
@@ -2891,7 +2920,11 @@ class MyRotaScreen extends StatefulWidget {
 
 class _MyRotaScreenState extends State<MyRotaScreen> {
   bool isLoading = true;
+
   List shifts = [];
+
+  DateTime focusedDay = DateTime.now();
+  DateTime selectedDay = DateTime.now();
 
   @override
   void initState() {
@@ -2927,7 +2960,17 @@ class _MyRotaScreenState extends State<MyRotaScreen> {
     }
   }
 
-  Color typeColor(String type) {
+  List getShiftsForDay(DateTime day) {
+    return shifts.where((shift) {
+      final shiftDate = DateTime.parse(shift['shift_date']);
+
+      return shiftDate.year == day.year &&
+          shiftDate.month == day.month &&
+          shiftDate.day == day.day;
+    }).toList();
+  }
+
+  Color shiftColor(String type) {
     switch (type) {
       case 'morning':
         return Colors.blue;
@@ -2937,23 +2980,21 @@ class _MyRotaScreenState extends State<MyRotaScreen> {
         return Colors.purple;
       case 'split':
         return Colors.pink;
-      case 'day_off':
-        return Colors.grey;
       case 'holiday':
         return Colors.green;
       case 'sick':
         return Colors.red;
+      case 'day_off':
+        return Colors.grey;
       default:
         return Colors.blueGrey;
     }
   }
 
-  String cleanText(String text) {
-    return text.replaceAll('_', ' ').toUpperCase();
-  }
-
   @override
   Widget build(BuildContext context) {
+    final selectedShifts = getShiftsForDay(selectedDay);
+
     return Scaffold(
       backgroundColor: const Color(0xfff4f7fb),
       appBar: AppBar(
@@ -2963,100 +3004,155 @@ class _MyRotaScreenState extends State<MyRotaScreen> {
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : shifts.isEmpty
-              ? const Center(child: Text('No published rota found.'))
-              : RefreshIndicator(
-                  onRefresh: fetchRota,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(18),
-                    itemCount: shifts.length,
-                    itemBuilder: (context, index) {
-                      final shift = shifts[index];
+          : Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.all(18),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.06),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: TableCalendar(
+                    firstDay: DateTime.utc(2024, 1, 1),
+                    lastDay: DateTime.utc(2035, 12, 31),
+                    focusedDay: focusedDay,
 
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(22),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.06),
-                              blurRadius: 18,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 26,
-                              backgroundColor:
-                                  typeColor(shift['shift_type']).withOpacity(0.12),
-                              child: Icon(
-                                Icons.schedule,
-                                color: typeColor(shift['shift_type']),
-                              ),
-                            ),
+                    selectedDayPredicate: (day) {
+                      return isSameDay(selectedDay, day);
+                    },
 
-                            const SizedBox(width: 14),
+                    onDaySelected: (selected, focused) {
+                      setState(() {
+                        selectedDay = selected;
+                        focusedDay = focused;
+                      });
+                    },
 
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    shift['shift_date'] ?? '',
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
+                    calendarStyle: CalendarStyle(
+                      todayDecoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.3),
+                        shape: BoxShape.circle,
+                      ),
+                      selectedDecoration: const BoxDecoration(
+                        color: Color(0xff1583ff),
+                        shape: BoxShape.circle,
+                      ),
+                      markerDecoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
 
-                                  const SizedBox(height: 6),
-
-                                  Text(
-                                    cleanText(shift['shift_type'] ?? ''),
-                                    style: TextStyle(
-                                      color: typeColor(shift['shift_type']),
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-
-                                  const SizedBox(height: 6),
-
-                                  Text(
-                                    shift['start_time'] != null &&
-                                            shift['end_time'] != null
-                                        ? '${shift['start_time']} - ${shift['end_time']}'
-                                        : 'No shift time',
-                                    style: const TextStyle(color: Colors.grey),
-                                  ),
-
-                                  if (shift['notes'] != null) ...[
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      shift['notes'],
-                                      style: const TextStyle(color: Colors.grey),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-
-                            Text(
-                              '${shift['break_minutes'] ?? 0} min break',
-                              style: const TextStyle(
-                                color: Colors.grey,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
+                    eventLoader: (day) {
+                      return getShiftsForDay(day);
                     },
                   ),
                 ),
+
+                Expanded(
+                  child: selectedShifts.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'No shifts for selected date.',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 16,
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 18),
+                          itemCount: selectedShifts.length,
+                          itemBuilder: (context, index) {
+                            final shift = selectedShifts[index];
+
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 14),
+                              padding: const EdgeInsets.all(18),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(22),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.06),
+                                    blurRadius: 18,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 24,
+                                    backgroundColor:
+                                        shiftColor(shift['shift_type'])
+                                            .withOpacity(0.15),
+                                    child: Icon(
+                                      Icons.schedule,
+                                      color:
+                                          shiftColor(shift['shift_type']),
+                                    ),
+                                  ),
+
+                                  const SizedBox(width: 14),
+
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          shift['shift_type']
+                                              .toString()
+                                              .replaceAll('_', ' ')
+                                              .toUpperCase(),
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 17,
+                                            color: shiftColor(
+                                                shift['shift_type']),
+                                          ),
+                                        ),
+
+                                        const SizedBox(height: 6),
+
+                                        Text(
+                                          shift['start_time'] != null
+                                              ? '${shift['start_time']} - ${shift['end_time']}'
+                                              : 'No shift time',
+                                          style: const TextStyle(
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+
+                                        if (shift['notes'] != null) ...[
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            shift['notes'],
+                                            style: const TextStyle(
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
     );
   }
 }
