@@ -10,7 +10,8 @@ import 'firebase_options.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
-const String baseUrl = 'http://172.31.0.41:8000/api';
+// const String baseUrl = 'http://172.31.0.41:8000/api';
+const String baseUrl = 'http://172.20.10.3:8000/api';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
