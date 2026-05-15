@@ -4,41 +4,33 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
-// import 'package:firebase_core/firebase_core.dart';
-// import 'firebase_options.dart';
 import 'package:table_calendar/table_calendar.dart';
-// import 'package:firebase_messaging/firebase_messaging.dart';
-// const String baseUrl = 'http://192.168.0.10:8000/api';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 
-
-// const String baseUrl = 'http://192.168.0.10:8000/api';
 const String baseUrl = 'http://172.31.0.41:8000/api';
-// const String baseUrl = 'http://127.0.0.1:8000/api';
-// const String baseUrl = 'http://localhost:8000/api';
-// const String baseUrl = 'http://127.0.0.1:8000/api';
-// void main() {
-//   runApp(const MgmOpsApp());
-// }
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // print('APP STARTED');
 
-  // await Firebase.initializeApp(
-  //   options: DefaultFirebaseOptions.currentPlatform,
-  // );
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
-  // FirebaseMessaging messaging = FirebaseMessaging.instance;
+  if (!kIsWeb) {
+    final messaging = FirebaseMessaging.instance;
 
-  // NotificationSettings settings = await messaging.requestPermission(
-  //   alert: true,
-  //   badge: true,
-  //   sound: true,
-  // );
+    await messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
 
-  // String? token = await messaging.getToken();
-
-  // print('Permission granted: ${settings.authorizationStatus}');
-  // print('FCM TOKEN: $token');
+    final token = await messaging.getToken();
+    debugPrint('FCM TOKEN: $token');
+  }
 
   runApp(const MgmOpsApp());
 }
@@ -291,7 +283,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final crossAxisCount = constraints.maxWidth > 700 ? 3 : 2;
+            // final crossAxisCount = constraints.maxWidth > 700 ? 3 : 2;
+            int crossAxisCount;
+
+              if (constraints.maxWidth >= 1000) {
+                crossAxisCount = 4;
+              } else if (constraints.maxWidth >= 700) {
+                crossAxisCount = 3;
+              } else if (constraints.maxWidth >= 420) {
+                crossAxisCount = 2;
+              } else {
+                crossAxisCount = 1;
+              }
 
             return SingleChildScrollView(
               padding: const EdgeInsets.all(20),
@@ -349,7 +352,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     physics: const NeverScrollableScrollPhysics(),
                     crossAxisSpacing: 14,
                     mainAxisSpacing: 14,
-                    childAspectRatio: 1.15,
+                    // childAspectRatio: 1.15,
+                    childAspectRatio: constraints.maxWidth < 420 ? 2.8 : 1.15,
                     children: [
                       // dashboardItem(Icons.people, 'Staff Directory'),
 
@@ -1086,18 +1090,88 @@ class _AddMaintenanceScreenState extends State<AddMaintenanceScreen> {
     super.initState();
     fetchDepartments();
   }
-  Future<void> pickImage() async {
-  final image = await picker.pickImage(
-    source: ImageSource.gallery,
-    imageQuality: 75,
-  );
 
-  if (image != null) {
-    setState(() {
-      selectedImage = image;
-    });
-  }
+  Future<void> pickImage() async {
+  showModalBottomSheet(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(22),
+      ),
+    ),
+    builder: (context) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Upload Image',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Take Photo'),
+                onTap: () async {
+                  Navigator.pop(context);
+
+                  final image = await picker.pickImage(
+                    source: ImageSource.camera,
+                    imageQuality: 75,
+                  );
+
+                  if (image != null) {
+                    setState(() {
+                      selectedImage = image;
+                    });
+                  }
+                },
+              ),
+
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Choose from Gallery'),
+                onTap: () async {
+                  Navigator.pop(context);
+
+                  final image = await picker.pickImage(
+                    source: ImageSource.gallery,
+                    imageQuality: 75,
+                  );
+
+                  if (image != null) {
+                    setState(() {
+                      selectedImage = image;
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
 }
+//   Future<void> pickImage() async {
+//   final image = await picker.pickImage(
+//     source: ImageSource.gallery,
+//     imageQuality: 75,
+//   );
+
+//   if (image != null) {
+//     setState(() {
+//       selectedImage = image;
+//     });
+//   }
+// }
 
   Future<void> fetchDepartments() async {
     final prefs = await SharedPreferences.getInstance();
@@ -2912,6 +2986,7 @@ class SimplePage extends StatelessWidget {
 
 //Rota
 class MyRotaScreen extends StatefulWidget {
+  
   const MyRotaScreen({super.key});
 
   @override
@@ -2919,6 +2994,7 @@ class MyRotaScreen extends StatefulWidget {
 }
 
 class _MyRotaScreenState extends State<MyRotaScreen> {
+  CalendarFormat calendarFormat = CalendarFormat.month;
   bool isLoading = true;
 
   List shifts = [];
@@ -3020,41 +3096,58 @@ class _MyRotaScreenState extends State<MyRotaScreen> {
                       ),
                     ],
                   ),
+
+                  //table calander
                   child: TableCalendar(
-                    firstDay: DateTime.utc(2024, 1, 1),
-                    lastDay: DateTime.utc(2035, 12, 31),
-                    focusedDay: focusedDay,
+                        firstDay: DateTime.utc(2024, 1, 1),
+                        lastDay: DateTime.utc(2035, 12, 31),
+                        focusedDay: focusedDay,
 
-                    selectedDayPredicate: (day) {
-                      return isSameDay(selectedDay, day);
-                    },
+                        calendarFormat: calendarFormat,
 
-                    onDaySelected: (selected, focused) {
-                      setState(() {
-                        selectedDay = selected;
-                        focusedDay = focused;
-                      });
-                    },
+                        availableCalendarFormats: const {
+                          CalendarFormat.month: 'Month',
+                        },
 
-                    calendarStyle: CalendarStyle(
-                      todayDecoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.3),
-                        shape: BoxShape.circle,
+                        rowHeight: MediaQuery.of(context).size.width < 400 ? 42 : 52,
+
+                        headerStyle: const HeaderStyle(
+                          formatButtonVisible: false,
+                          titleCentered: true,
+                        ),
+
+                        selectedDayPredicate: (day) {
+                          return isSameDay(selectedDay, day);
+                        },
+
+                        onDaySelected: (selected, focused) {
+                          setState(() {
+                            selectedDay = selected;
+                            focusedDay = focused;
+                          });
+                        },
+
+                        calendarStyle: CalendarStyle(
+                          todayDecoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.3),
+                            shape: BoxShape.circle,
+                          ),
+                          selectedDecoration: const BoxDecoration(
+                            color: Color(0xff1583ff),
+                            shape: BoxShape.circle,
+                          ),
+                          markerDecoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+
+                        eventLoader: (day) {
+                          return getShiftsForDay(day);
+                        },
                       ),
-                      selectedDecoration: const BoxDecoration(
-                        color: Color(0xff1583ff),
-                        shape: BoxShape.circle,
-                      ),
-                      markerDecoration: const BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-
-                    eventLoader: (day) {
-                      return getShiftsForDay(day);
-                    },
-                  ),
+               
+            
                 ),
 
                 Expanded(
