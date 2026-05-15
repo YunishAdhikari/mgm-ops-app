@@ -4,15 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
+// import 'package:firebase_core/firebase_core.dart';
+// import 'firebase_options.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-const String baseUrl = 'http://192.168.0.10:8000/api';
+// import 'package:firebase_messaging/firebase_messaging.dart';
+// const String baseUrl = 'http://192.168.0.10:8000/api';
 
 
 // const String baseUrl = 'http://192.168.0.10:8000/api';
-// const String baseUrl = 'http://localhost:8000/api';
+const String baseUrl = 'http://172.31.0.41:8000/api';
 // const String baseUrl = 'http://127.0.0.1:8000/api';
 // const String baseUrl = 'http://localhost:8000/api';
 // const String baseUrl = 'http://127.0.0.1:8000/api';
@@ -23,9 +23,9 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // print('APP STARTED');
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  // await Firebase.initializeApp(
+  //   options: DefaultFirebaseOptions.currentPlatform,
+  // );
 
   // FirebaseMessaging messaging = FirebaseMessaging.instance;
 

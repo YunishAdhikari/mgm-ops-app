@@ -1,4 +1,4 @@
-package com.example.mgm_ops_app
+package com.yunish.mgmops
 
 import io.flutter.embedding.android.FlutterActivity
 
