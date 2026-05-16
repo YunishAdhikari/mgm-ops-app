@@ -10,8 +10,8 @@ import 'firebase_options.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
-// const String baseUrl = 'http://172.31.0.41:8000/api';
-const String baseUrl = 'http://172.20.10.3:8000/api';
+const String baseUrl = 'http://172.31.0.41:8000/api';
+// const String baseUrl = 'http://192.168.0.10:8000/api';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -420,6 +420,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             );
                           },
                         ),
+                        // dashboardItem(
+                        //       Icons.report_problem,
+                        //       'Complaints',
+                        //       onTap: () {
+                        //         Navigator.push(
+                        //           context,
+                        //           MaterialPageRoute(
+                        //             builder: (_) => const ComplaintsScreen(),
+                        //           ),
+                        //         );
+                        //       },
+                        //     ),
 
                       dashboardItem(
                         Icons.list_alt,
@@ -2184,11 +2196,8 @@ class MyHolidayRequestsScreen extends StatefulWidget {
       _MyHolidayRequestsScreenState();
 }
 
-class _MyHolidayRequestsScreenState
-    extends State<MyHolidayRequestsScreen> {
-
+class _MyHolidayRequestsScreenState extends State<MyHolidayRequestsScreen> {
   bool isLoading = true;
-
   List requests = [];
 
   @override
@@ -2199,7 +2208,6 @@ class _MyHolidayRequestsScreenState
 
   Future<void> fetchRequests() async {
     final prefs = await SharedPreferences.getInstance();
-
     final token = prefs.getString('token');
 
     try {
@@ -2213,24 +2221,57 @@ class _MyHolidayRequestsScreenState
 
       final data = jsonDecode(response.body);
 
-      if (response.statusCode == 200 &&
-          data['success'] == true) {
-
+      if (response.statusCode == 200 && data['success'] == true) {
         setState(() {
           requests = data['requests'];
           isLoading = false;
         });
-
       } else {
-
         setState(() => isLoading = false);
-
       }
-
     } catch (e) {
-
       setState(() => isLoading = false);
+    }
+  }
 
+  Future<void> deleteHolidayRequest(int id) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/holiday-requests/$id'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['message'] ?? 'Holiday request deleted')),
+        );
+
+        fetchRequests();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['message'] ?? 'Unable to delete request')),
+        );
+
+        fetchRequests();
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+
+      fetchRequests();
     }
   }
 
@@ -2238,10 +2279,8 @@ class _MyHolidayRequestsScreenState
     switch (status) {
       case 'approved':
         return Colors.green;
-
       case 'rejected':
         return Colors.red;
-
       default:
         return Colors.orange;
     }
@@ -2255,153 +2294,78 @@ class _MyHolidayRequestsScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xfff4f7fb),
-
       appBar: AppBar(
         title: const Text('My Holiday Requests'),
         backgroundColor: const Color(0xff1583ff),
         foregroundColor: Colors.white,
       ),
-
       body: isLoading
-          ? const Center(
-              child: CircularProgressIndicator(),
-            )
-
+          ? const Center(child: CircularProgressIndicator())
           : requests.isEmpty
-              ? const Center(
-                  child: Text(
-                    'No holiday requests found.',
-                  ),
-                )
-
+              ? const Center(child: Text('No holiday requests found.'))
               : RefreshIndicator(
                   onRefresh: fetchRequests,
-
                   child: ListView.builder(
                     padding: const EdgeInsets.all(18),
-
                     itemCount: requests.length,
-
                     itemBuilder: (context, index) {
-
                       final request = requests[index];
+                      final isPending = request['status'] == 'pending';
 
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 16),
+                      if (!isPending) {
+                        return holidayRequestCard(request);
+                      }
 
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(22),
-
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.06),
-                              blurRadius: 18,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-
-                        child: Padding(
-                          padding: const EdgeInsets.all(18),
-
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-
-                            children: [
-
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-
-                                children: [
-
-                                  Expanded(
-                                    child: Text(
-                                      '${request['start_date']} → ${request['end_date']}',
-
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 7,
-                                    ),
-
-                                    decoration: BoxDecoration(
-                                      color: statusColor(
-                                        request['status'],
-                                      ).withOpacity(0.12),
-
-                                      borderRadius:
-                                          BorderRadius.circular(30),
-                                    ),
-
-                                    child: Text(
-                                      cleanText(
-                                        request['status'],
-                                      ),
-
-                                      style: TextStyle(
-                                        color: statusColor(
-                                          request['status'],
-                                        ),
-
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              const SizedBox(height: 14),
-
-                              infoRow(
-                                'Department',
-                                request['department']?['name'] ?? 'N/A',
-                              ),
-
-                              infoRow(
-                                'Total Days',
-                                '${request['total_days'] ?? 0}',
-                              ),
-
-                              infoRow(
-                                'Reason',
-                                request['reason'] ?? 'No reason provided',
-                              ),
-
-                              if (request['approver'] != null)
-                                infoRow(
-                                  'Approved By',
-                                  request['approver']['name'] ?? 'N/A',
-                                ),
-
-                              if (request['manager_note'] != null)
-                                infoRow(
-                                  'Manager Note',
-                                  request['manager_note'],
-                                ),
-
-                              const SizedBox(height: 8),
-
-                              Text(
-                                'Submitted: ${request['created_at'].toString().substring(0, 10)}',
-
-                                style: const TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
+                      return Dismissible(
+                        key: Key(request['id'].toString()),
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 24),
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(22),
+                          ),
+                          child: const Icon(
+                            Icons.delete,
+                            color: Colors.white,
+                            size: 32,
                           ),
                         ),
+                        confirmDismiss: (direction) async {
+                          return await showDialog<bool>(
+                                context: context,
+                                builder: (context) {
+                                  return AlertDialog(
+                                    title: const Text('Delete request?'),
+                                    content: const Text(
+                                      'Are you sure you want to delete this pending holiday request?',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, true),
+                                        child: const Text(
+                                          'Delete',
+                                          style: TextStyle(color: Colors.red),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ) ??
+                              false;
+                        },
+                        onDismissed: (_) {
+                          deleteHolidayRequest(request['id']);
+                        },
+                        child: holidayRequestCard(request),
                       );
                     },
                   ),
@@ -2409,32 +2373,126 @@ class _MyHolidayRequestsScreenState
     );
   }
 
+  Widget holidayRequestCard(dynamic request) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    '${request['start_date']} → ${request['end_date']}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: statusColor(
+                      request['status'],
+                    ).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Text(
+                    cleanText(request['status']),
+                    style: TextStyle(
+                      color: statusColor(request['status']),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            infoRow(
+              'Department',
+              request['department']?['name'] ?? 'N/A',
+            ),
+            infoRow(
+              'Total Days',
+              '${request['total_days'] ?? 0}',
+            ),
+            infoRow(
+              'Reason',
+              request['reason'] ?? 'No reason provided',
+            ),
+            if (request['approver'] != null)
+              infoRow(
+                'Approved By',
+                request['approver']['name'] ?? 'N/A',
+              ),
+            if (request['manager_note'] != null)
+              infoRow(
+                'Manager Note',
+                request['manager_note'],
+              ),
+            const SizedBox(height: 8),
+            Text(
+              'Submitted: ${request['created_at'].toString().substring(0, 10)}',
+              style: const TextStyle(
+                color: Colors.grey,
+                fontSize: 13,
+              ),
+            ),
+            if (request['status'] == 'pending') ...[
+              const SizedBox(height: 8),
+              const Text(
+                'Swipe left to delete',
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget infoRow(String title, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-
         children: [
-
           SizedBox(
             width: 110,
-
             child: Text(
               title,
-
               style: const TextStyle(
                 color: Colors.grey,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ),
-
           Expanded(
             child: Text(
               value,
-
               style: const TextStyle(
                 fontWeight: FontWeight.w600,
               ),
@@ -2445,6 +2503,8 @@ class _MyHolidayRequestsScreenState
     );
   }
 }
+
+
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -3250,3 +3310,6 @@ class _MyRotaScreenState extends State<MyRotaScreen> {
     );
   }
 }
+
+
+//view complaints screen
