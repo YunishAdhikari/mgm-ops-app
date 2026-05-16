@@ -9,9 +9,9 @@ import 'package:table_calendar/table_calendar.dart';
 // import 'firebase_options.dart';
 // import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
-const String baseUrl = 'http://172.31.0.41:8000/api';
 // const String baseUrl = 'http://172.31.0.41:8000/api';
-// const String baseUrl = 'http://192.168.0.10:8000/api';
+// const String baseUrl = 'http://172.31.0.41:8000/api';
+const String baseUrl = 'http://192.168.0.10:8000/api';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
