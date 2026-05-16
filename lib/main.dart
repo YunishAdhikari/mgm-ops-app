@@ -5,33 +5,33 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+// import 'package:firebase_core/firebase_core.dart';
+// import 'firebase_options.dart';
+// import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
-
 const String baseUrl = 'http://172.31.0.41:8000/api';
+// const String baseUrl = 'http://172.31.0.41:8000/api';
 // const String baseUrl = 'http://192.168.0.10:8000/api';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  // await Firebase.initializeApp(
+  //   options: DefaultFirebaseOptions.currentPlatform,
+  // );
 
-  if (!kIsWeb) {
-    final messaging = FirebaseMessaging.instance;
+  // if (!kIsWeb) {
+  //   final messaging = FirebaseMessaging.instance;
 
-    await messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+  //   await messaging.requestPermission(
+  //     alert: true,
+  //     badge: true,
+  //     sound: true,
+  //   );
 
-    final token = await messaging.getToken();
-    debugPrint('FCM TOKEN: $token');
-  }
+  //   final token = await messaging.getToken();
+  //   debugPrint('FCM TOKEN: $token');
+  // }
 
   runApp(const MgmOpsApp());
 }
