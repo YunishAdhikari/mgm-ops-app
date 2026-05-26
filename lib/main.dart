@@ -5,11 +5,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:flutter/services.dart';
-
-
-// const String baseUrl = 'http://172.31.0.41:8000/api';
-// const String baseUrl = 'http://172.31.0.41:8000/api';
-const String baseUrl = 'http://192.168.0.10:8000/api';
+import 'screens/attendance_screen.dart';
+import 'package:app_links/app_links.dart';
+import 'screens/reset_password_screen.dart';
+import 'screens/forgot_password_screen.dart';
+const String baseUrl = 'https://mgmglasgow.com/api';
+// const String baseUrl = 'http://192.168.0.10:8000/api';
 
 /* ================= APP CONFIG ================= */
 
@@ -24,12 +25,60 @@ void main() async {
   runApp(const MgmOpsApp());
 }
 
-class MgmOpsApp extends StatelessWidget {
+class MgmOpsApp extends StatefulWidget {
   const MgmOpsApp({super.key});
+
+  @override
+  State<MgmOpsApp> createState() => _MgmOpsAppState();
+}
+
+class _MgmOpsAppState extends State<MgmOpsApp> {
+  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  late final AppLinks appLinks;
+
+  @override
+  void initState() {
+    super.initState();
+    initDeepLinks();
+  }
+
+  Future<void> initDeepLinks() async {
+    appLinks = AppLinks();
+
+    appLinks.uriLinkStream.listen((Uri uri) {
+      handleDeepLink(uri);
+    });
+  }
+
+  void handleDeepLink(Uri uri) {
+    if (uri.scheme == 'mgmops' && uri.host == 'reset-password') {
+      final token = uri.queryParameters['token'];
+      final email = uri.queryParameters['email'];
+
+      if (token != null && email != null) {
+        navigatorKey.currentState?.push(
+          MaterialPageRoute(
+            builder: (_) => ResetPasswordScreen(
+              token: token,
+              email: email,
+            ),
+          ),
+        );
+      }
+
+      if (uri.scheme == 'mgmops' && uri.host == 'login') {
+        navigatorKey.currentState?.pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'MGM Ops',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -37,43 +86,6 @@ class MgmOpsApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xff1583ff),
           brightness: Brightness.light,
-        ),
-        scaffoldBackgroundColor: const Color(0xfff5f7fa),
-        appBarTheme: const AppBarTheme(
-          centerTitle: false,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-        ),
- cardTheme: CardThemeData(
-  elevation: 0,
-  shape: RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(16),
-  ),
-),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.grey.shade50,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade300),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade300),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xff1583ff), width: 2),
-          ),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
         ),
       ),
       home: const LoginScreen(),
@@ -242,6 +254,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       prefixIcon: Icon(Icons.lock_outlined),
                     ),
                   ),
+                  Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ForgotPasswordScreen(),
+                            ),
+                          );
+                        },
+                        child: const Text('Forgot Password?'),
+                      ),
+                    ),
 
                   const SizedBox(height: 32),
 
@@ -437,6 +463,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
         color: const Color(0xff10b981),
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyRotaScreen())),
       ),
+
+      //attencence screen
+      _ActionItem(
+            icon: Icons.access_time,
+            title: 'Attendance',
+            color: const Color(0xff06b6d4),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AttendanceScreen()),
+            ),
+          ),
+
       _ActionItem(
         icon: Icons.newspaper_outlined,
         title: 'News',
