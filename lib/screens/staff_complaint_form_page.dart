@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../core/constants.dart';
 
 class StaffComplaintFormPage extends StatefulWidget {
   final String authToken;
@@ -36,7 +37,7 @@ class _StaffComplaintFormPageState extends State<StaffComplaintFormPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://192.168.0.10:8000/api/complaints/staff-submit'),
+        Uri.parse('$baseUrl/complaints/staff-submit'),
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
