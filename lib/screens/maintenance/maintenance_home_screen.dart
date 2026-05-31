@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../core/app_colors.dart';
-import 'maintenance_job_detail_screen.dart';
 import '../../core/constants.dart';
-
-
+import 'maintenance_job_detail_screen.dart';
 
 class MaintenanceHomeScreen extends StatelessWidget {
   const MaintenanceHomeScreen({super.key});
@@ -16,6 +15,7 @@ class MaintenanceHomeScreen extends StatelessWidget {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
+        backgroundColor: const Color(0xfff7f7fb),
         appBar: AppBar(
           title: const Text('Maintenance Jobs'),
           backgroundColor: AppColors.primary,
@@ -42,6 +42,70 @@ class MaintenanceHomeScreen extends StatelessWidget {
   }
 }
 
+/* ================= HELPERS ================= */
+
+String? getMaintenanceImageUrl(Map job) {
+  final appUrl = baseUrl.replaceAll('/api', '');
+
+  final possibleImage = job['image_url'] ??
+      job['image'] ??
+      job['image_path'] ??
+      job['photo'] ??
+      job['photo_url'];
+
+  if (possibleImage == null) return null;
+
+  var image = possibleImage.toString().trim();
+
+  if (image.isEmpty || image == 'null') return null;
+
+  if (image.startsWith('http://') || image.startsWith('https://')) {
+    return image;
+  }
+
+  image = image.replaceAll('\\', '/');
+
+  if (image.startsWith('/')) {
+    image = image.substring(1);
+  }
+
+  if (image.startsWith('public/')) {
+    image = image.replaceFirst('public/', 'storage/');
+  }
+
+  if (!image.startsWith('storage/') && !image.startsWith('uploads/')) {
+    image = 'storage/$image';
+  }
+
+  return '$appUrl/$image';
+}
+
+Color priorityColor(String priority) {
+  switch (priority.toLowerCase()) {
+    case 'urgent':
+      return Colors.red;
+    case 'high':
+      return Colors.orange;
+    case 'medium':
+      return Colors.blue;
+    default:
+      return Colors.green;
+  }
+}
+
+Color statusColor(String status) {
+  switch (status.toLowerCase()) {
+    case 'in_progress':
+      return Colors.blue;
+    case 'completed':
+      return Colors.green;
+    case 'cancelled':
+      return Colors.grey;
+    default:
+      return Colors.orange;
+  }
+}
+
 /* ================= ACTIVE MAINTENANCE TAB ================= */
 
 class ActiveMaintenanceTab extends StatefulWidget {
@@ -53,7 +117,7 @@ class ActiveMaintenanceTab extends StatefulWidget {
 
 class _ActiveMaintenanceTabState extends State<ActiveMaintenanceTab> {
   bool isLoading = true;
-  List activeJobs = [];
+  List<Map<String, dynamic>> activeJobs = [];
 
   @override
   void initState() {
@@ -79,82 +143,58 @@ class _ActiveMaintenanceTabState extends State<ActiveMaintenanceTab> {
       if (response.statusCode == 200 && data['success'] == true) {
         final allJobs = List<Map<String, dynamic>>.from(data['jobs']);
 
-        // Filter active jobs (pending, in_progress only)
         setState(() {
           activeJobs = allJobs.where((job) {
             final status = job['status']?.toString().toLowerCase();
             return status == 'pending' || status == 'in_progress';
           }).toList();
+
           isLoading = false;
         });
       } else {
         setState(() => isLoading = false);
       }
     } catch (e) {
+      debugPrint('Maintenance fetch error: $e');
       setState(() => isLoading = false);
-    }
-  }
-
-  Color priorityColor(String priority) {
-    switch (priority) {
-      case 'urgent':
-        return Colors.red;
-      case 'high':
-        return Colors.orange;
-      case 'medium':
-        return Colors.blue;
-      default:
-        return Colors.green;
-    }
-  }
-
-  Color statusColor(String status) {
-    switch (status) {
-      case 'in_progress':
-        return Colors.blue;
-      case 'completed':
-        return Colors.green;
-      case 'cancelled':
-        return Colors.grey;
-      default:
-        return Colors.orange;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : activeJobs.isEmpty
-              ? _EmptyState(
-                  icon: Icons.check_circle_outline,
-                  title: 'No Active Jobs',
-                  subtitle: 'All maintenance jobs are up to date',
-                )
-              : RefreshIndicator(
-                  onRefresh: fetchJobs,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: activeJobs.length,
-                    itemBuilder: (context, index) {
-                      final job = activeJobs[index];
-                      return _JobCard(
-                        job: job,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => MaintenanceJobDetailScreen(job: job),
-                            ),
-                          ).then((_) => fetchJobs());
-                        },
-                        priorityColor: priorityColor,
-                        statusColor: statusColor,
-                      );
-                    },
-                  ),
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (activeJobs.isEmpty) {
+      return const _EmptyState(
+        icon: Icons.check_circle_outline,
+        title: 'No Active Jobs',
+        subtitle: 'All maintenance jobs are up to date',
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: fetchJobs,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: activeJobs.length,
+        itemBuilder: (context, index) {
+          final job = activeJobs[index];
+
+          return _JobCard(
+            job: job,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MaintenanceJobDetailScreen(job: job),
                 ),
+              ).then((_) => fetchJobs());
+            },
+          );
+        },
+      ),
     );
   }
 }
@@ -170,7 +210,7 @@ class PastMaintenanceTab extends StatefulWidget {
 
 class _PastMaintenanceTabState extends State<PastMaintenanceTab> {
   bool isLoading = true;
-  List pastJobs = [];
+  List<Map<String, dynamic>> pastJobs = [];
 
   @override
   void initState() {
@@ -196,85 +236,63 @@ class _PastMaintenanceTabState extends State<PastMaintenanceTab> {
       if (response.statusCode == 200 && data['success'] == true) {
         final allJobs = List<Map<String, dynamic>>.from(data['jobs']);
 
-        // Filter past jobs (completed, cancelled only)
         setState(() {
           pastJobs = allJobs.where((job) {
             final status = job['status']?.toString().toLowerCase();
             return status == 'completed' || status == 'cancelled';
           }).toList();
+
           isLoading = false;
         });
       } else {
         setState(() => isLoading = false);
       }
     } catch (e) {
+      debugPrint('Maintenance fetch error: $e');
       setState(() => isLoading = false);
-    }
-  }
-
-  Color priorityColor(String priority) {
-    switch (priority) {
-      case 'urgent':
-        return Colors.red;
-      case 'high':
-        return Colors.orange;
-      case 'medium':
-        return Colors.blue;
-      default:
-        return Colors.green;
-    }
-  }
-
-  Color statusColor(String status) {
-    switch (status) {
-      case 'in_progress':
-        return Colors.blue;
-      case 'completed':
-        return Colors.green;
-      case 'cancelled':
-        return Colors.grey;
-      default:
-        return Colors.orange;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : pastJobs.isEmpty
-              ? _EmptyState(
-                  icon: Icons.history,
-                  title: 'No Past Jobs',
-                  subtitle: 'Completed and cancelled jobs will appear here',
-                )
-              : RefreshIndicator(
-                  onRefresh: fetchJobs,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: pastJobs.length,
-                    itemBuilder: (context, index) {
-                      final job = pastJobs[index];
-                      return _JobCard(
-                        job: job,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => MaintenanceJobDetailScreen(job: job),
-                            ),
-                          ).then((_) => fetchJobs());
-                        },
-                        priorityColor: priorityColor,
-                        statusColor: statusColor,
-                      );
-                    },
-                  ),
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (pastJobs.isEmpty) {
+      return const _EmptyState(
+        icon: Icons.history,
+        title: 'No Past Jobs',
+        subtitle: 'Completed and cancelled jobs will appear here',
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: fetchJobs,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: pastJobs.length,
+        itemBuilder: (context, index) {
+          final job = pastJobs[index];
+
+          return _JobCard(
+            job: job,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MaintenanceJobDetailScreen(job: job),
                 ),
+              ).then((_) => fetchJobs());
+            },
+          );
+        },
+      ),
     );
   }
 }
+
+/* ================= EMPTY STATE ================= */
 
 class _EmptyState extends StatelessWidget {
   final IconData icon;
@@ -317,94 +335,148 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
+/* ================= JOB CARD ================= */
+
 class _JobCard extends StatelessWidget {
-  final Map job;
+  final Map<String, dynamic> job;
   final VoidCallback onTap;
-  final Color Function(String) priorityColor;
-  final Color Function(String) statusColor;
 
   const _JobCard({
     required this.job,
     required this.onTap,
-    required this.priorityColor,
-    required this.statusColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final imageUrl = getMaintenanceImageUrl(job);
+
+    final priority = job['priority']?.toString() ?? 'low';
+    final status = job['status']?.toString() ?? 'pending';
+
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         onTap: onTap,
         child: Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.only(bottom: 14),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(color: Colors.grey.shade200),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (job['image_url'] != null)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    job['image_url'],
-                    width: double.infinity,
-                    height: 150,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      height: 150,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(Icons.broken_image, color: Colors.grey.shade400),
-                    ),
-                  ),
-                ),
-              if (job['image_url'] != null) const SizedBox(height: 12),
-              Text(
-                job['title'] ?? 'No Title',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                job['description'] ?? '',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: AppColors.grey, height: 1.4),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _Badge(
-                    text: (job['priority'] ?? '').replaceAll('_', ' ').toUpperCase(),
-                    color: priorityColor(job['priority'] ?? ''),
-                  ),
-                  _Badge(
-                    text: (job['status'] ?? '').replaceAll('_', ' ').toUpperCase(),
-                    color: statusColor(job['status'] ?? ''),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Icon(Icons.location_on_outlined, size: 16, color: AppColors.grey),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${job['location'] ?? 'N/A'} | Room: ${job['room_number'] ?? 'N/A'}',
-                    style: TextStyle(color: AppColors.grey, fontSize: 13),
-                  ),
-                ],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
               ),
             ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (imageUrl != null) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Image.network(
+                      imageUrl,
+                      width: double.infinity,
+                      height: 170,
+                      fit: BoxFit.cover,
+                      headers: const {
+                        'Accept': 'image/*',
+                      },
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+
+                        return Container(
+                          height: 170,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const CircularProgressIndicator(),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        debugPrint('IMAGE ERROR: $error');
+                        debugPrint('IMAGE URL: $imageUrl');
+
+                        return _ImageFallback();
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                ] else ...[
+                  _ImageFallback(),
+                  const SizedBox(height: 14),
+                ],
+
+                Text(
+                  job['title']?.toString() ?? 'No Title',
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xff111827),
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                Text(
+                  job['description']?.toString() ?? '',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.grey,
+                    height: 1.45,
+                    fontSize: 14,
+                  ),
+                ),
+
+                const SizedBox(height: 14),
+
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _Badge(
+                      text: priority.replaceAll('_', ' ').toUpperCase(),
+                      color: priorityColor(priority),
+                    ),
+                    _Badge(
+                      text: status.replaceAll('_', ' ').toUpperCase(),
+                      color: statusColor(status),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+
+                Row(
+                  children: [
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 18,
+                      color: AppColors.grey,
+                    ),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        '${job['location'] ?? 'N/A'} | Room: ${job['room_number'] ?? 'N/A'}',
+                        style: TextStyle(
+                          color: AppColors.grey,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -412,24 +484,59 @@ class _JobCard extends StatelessWidget {
   }
 }
 
+/* ================= IMAGE FALLBACK ================= */
+
+class _ImageFallback extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 170,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Center(
+        child: Icon(
+          Icons.image_not_supported_outlined,
+          size: 42,
+          color: Colors.grey.shade400,
+        ),
+      ),
+    );
+  }
+}
+
+/* ================= BADGE ================= */
 
 class _Badge extends StatelessWidget {
   final String text;
   final Color color;
 
-  const _Badge({required this.text, required this.color});
+  const _Badge({
+    required this.text,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 11,
+        vertical: 6,
+      ),
       decoration: BoxDecoration(
         color: color.withOpacity(0.12),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         text,
-        style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11),
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.bold,
+          fontSize: 11,
+        ),
       ),
     );
   }
