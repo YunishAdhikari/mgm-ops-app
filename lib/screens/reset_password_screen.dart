@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-import '../main.dart';
+import '../core/app_colors.dart';
+import '../core/constants.dart';
+import 'login_screen.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
   final String token;

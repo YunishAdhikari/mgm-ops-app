@@ -1,250 +1,170 @@
 import 'dart:convert';
-import 'package:geolocator/geolocator.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
-import '../main.dart';
+class AttendanceQrScannerPage extends StatefulWidget {
+  final String authToken;
 
-class AttendanceScreen extends StatefulWidget {
-  const AttendanceScreen({super.key});
-
-  @override
-  State<AttendanceScreen> createState() => _AttendanceScreenState();
-}
-
-class _AttendanceScreenState extends State<AttendanceScreen> {
-  bool isLoading = true;
-  bool isSubmitting = false;
-
-  String status = 'clocked_out';
-  Map? log;
-  Future<Position?> getCurrentLocation() async {
-  bool serviceEnabled;
-  LocationPermission permission;
-
-  serviceEnabled = await Geolocator.isLocationServiceEnabled();
-
-  if (!serviceEnabled) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please enable location service')),
-    );
-    return null;
-  }
-
-  permission = await Geolocator.checkPermission();
-
-  if (permission == LocationPermission.denied) {
-    permission = await Geolocator.requestPermission();
-  }
-
-  if (permission == LocationPermission.deniedForever) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Location permission permanently denied')),
-    );
-    return null;
-  }
-
-  return await Geolocator.getCurrentPosition(
-    desiredAccuracy: LocationAccuracy.high,
-  );
-}
+  const AttendanceQrScannerPage({
+    super.key,
+    required this.authToken,
+  });
 
   @override
-  void initState() {
-    super.initState();
-    fetchStatus();
-  }
+  State<AttendanceQrScannerPage> createState() =>
+      _AttendanceQrScannerPageState();
+}
 
-  Future<void> fetchStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+class _AttendanceQrScannerPageState extends State<AttendanceQrScannerPage> {
+  bool isProcessing = false;
+  final MobileScannerController scannerController = MobileScannerController();
 
-    final response = await http.get(
-      Uri.parse('$baseUrl/attendance/status'),
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
+  Future<void> submitQrToken(String qrToken) async {
+    if (isProcessing) return;
 
-    final data = jsonDecode(response.body);
+    setState(() {
+      isProcessing = true;
+    });
 
-    if (response.statusCode == 200 && data['success'] == true) {
+    await scannerController.stop();
+
+    try {
+        final response = await http.post(
+          Uri.parse('https://mgmglasgow.com/api/attendance/scan-qr'),
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ${widget.authToken}',
+          },
+          body: jsonEncode({
+            'token': qrToken.trim(),
+          }),
+        );
+
+      Map<String, dynamic> data = {};
+
+      try {
+        data = jsonDecode(response.body);
+      } catch (_) {
+        data = {
+          'message': 'Invalid server response. Status: ${response.statusCode}',
+        };
+      }
+
+      if (!mounted) return;
+
+      final success = response.statusCode >= 200 &&
+          response.statusCode < 300 &&
+          data['success'] == true;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(data['message'] ?? 'Attendance updated.'),
+          backgroundColor: success ? Colors.green : Colors.red,
+        ),
+      );
+
+      if (success) {
+        Navigator.pop(context, true);
+      } else {
+        setState(() {
+          isProcessing = false;
+        });
+
+        await scannerController.start();
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Network error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+
       setState(() {
-        status = data['status'] ?? 'clocked_out';
-        log = data['log'];
-        isLoading = false;
+        isProcessing = false;
       });
-    } else {
-      setState(() => isLoading = false);
+
+      await scannerController.start();
     }
   }
 
- Future<void> clockAction(String type) async {
-  setState(() => isSubmitting = true);
-
-  final position = await getCurrentLocation();
-
-  if (position == null) {
-    setState(() => isSubmitting = false);
-    return;
-  }
-
-  final prefs = await SharedPreferences.getInstance();
-  final token = prefs.getString('token');
-
-  final endpoint = type == 'in'
-      ? '$baseUrl/attendance/clock-in'
-      : '$baseUrl/attendance/clock-out';
-
-  final response = await http.post(
-    Uri.parse(endpoint),
-    headers: {
-      'Accept': 'application/json',
-      'Authorization': 'Bearer $token',
-    },
-    body: {
-      'latitude': position.latitude.toString(),
-      'longitude': position.longitude.toString(),
-    },
-  );
-
-  final data = jsonDecode(response.body);
-
-  setState(() => isSubmitting = false);
-
-  if (!mounted) return;
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(data['message'] ?? 'Attendance updated')),
-  );
-
-  if (response.statusCode == 200 && data['success'] == true) {
-    fetchStatus();
-  }
-}
-
-  String showTime(dynamic value) {
-    if (value == null) return '-';
-    final text = value.toString();
-    if (!text.contains('T')) return text;
-    return text.substring(11, 16);
+  @override
+  void dispose() {
+    scannerController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isClockedIn = status == 'clocked_in';
-
     return Scaffold(
-      backgroundColor: const Color(0xfff4f7fb),
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('Attendance'),
-        backgroundColor: const Color(0xff1583ff),
+        title: const Text('Scan Attendance QR'),
+        backgroundColor: Colors.black,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(18),
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  padding: const EdgeInsets.all(22),
-                  decoration: cardDecoration(),
-                  child: Column(
-                    children: [
-                      Icon(
-                        isClockedIn ? Icons.check_circle : Icons.access_time,
-                        size: 74,
-                        color: isClockedIn ? Colors.green : Colors.orange,
-                      ),
-                      const SizedBox(height: 18),
+      body: Stack(
+        children: [
+          MobileScanner(
+            controller: scannerController,
+            onDetect: (capture) {
+              if (isProcessing) return;
 
-                      Text(
-                        isClockedIn ? 'You are clocked in' : 'You are clocked out',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+              final barcode = capture.barcodes.firstOrNull;
+              final token = barcode?.rawValue;
 
-                      const SizedBox(height: 8),
+              if (token != null && token.isNotEmpty) {
+                submitQrToken(token);
+              }
+            },
+          ),
 
-                      Text(
-                        isClockedIn
-                            ? 'Remember to clock out before leaving work.'
-                            : 'Clock in when you arrive at the hotel.',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-
-                      const SizedBox(height: 26),
-
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xfff9fafb),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
-                          children: [
-                            _attendanceRow(
-                              'Clock In',
-                              showTime(log?['clock_in_at']),
-                            ),
-                            const Divider(),
-                            _attendanceRow(
-                              'Clock Out',
-                              showTime(log?['clock_out_at']),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 26),
-
-                      SizedBox(
-                        width: double.infinity,
-                        height: 54,
-                        child: ElevatedButton.icon(
-                          onPressed: isSubmitting
-                              ? null
-                              : () => clockAction(isClockedIn ? 'out' : 'in'),
-                          icon: Icon(
-                            isClockedIn ? Icons.logout : Icons.login,
-                          ),
-                          label: isSubmitting
-                              ? const CircularProgressIndicator(color: Colors.white)
-                              : Text(isClockedIn ? 'Clock Out' : 'Clock In'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                isClockedIn ? Colors.red : Colors.green,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+          Center(
+            child: Container(
+              width: 260,
+              height: 260,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white, width: 3),
+                borderRadius: BorderRadius.circular(18),
               ),
             ),
-    );
-  }
+          ),
 
-  Widget _attendanceRow(String title, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(title, style: const TextStyle(color: Colors.grey)),
-        Text(
-          value,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-      ],
+          if (isProcessing)
+            Container(
+              color: Colors.black54,
+              child: const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
+            ),
+
+          Positioned(
+            bottom: 40,
+            left: 24,
+            right: 24,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.65),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Text(
+                'Point your camera at the live QR code displayed in the staff room.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

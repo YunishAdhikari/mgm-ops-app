@@ -5,6 +5,8 @@
 <key>CFBundleURLTypes</key>
 <array>
     <dict>
+		<key>NSCameraUsageDescription</key>
+		<string>Camera is required to scan attendance QR code.</string>
         <key>CFBundleURLName</key>
         <string>com.yunish.mgmops</string>
         <key>CFBundleURLSchemes</key>
