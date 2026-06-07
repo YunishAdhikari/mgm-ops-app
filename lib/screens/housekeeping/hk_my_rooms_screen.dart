@@ -27,42 +27,41 @@ class _HkMyRoomsScreenState extends State<HkMyRoomsScreen> {
     loadRooms();
   }
 
-Future<void> loadRooms() async {
-  final prefs = await SharedPreferences.getInstance();
-  token = prefs.getString('token') ?? '';
+  Future<void> loadRooms() async {
+    final prefs = await SharedPreferences.getInstance();
+    token = prefs.getString('token') ?? '';
 
-  try {
-    final response = await http.get(
-      Uri.parse('$baseUrl/hk/my-rooms'),
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/hk/my-rooms'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
 
-    print('STATUS CODE: ${response.statusCode}');
-    print('BODY: ${response.body}');
+      if (response.body.trim().isEmpty) {
+        setState(() => isLoading = false);
+        showMessage('Server returned empty response.');
+        return;
+      }
 
-    final data = jsonDecode(response.body);
+      final data = jsonDecode(response.body);
 
-    if (response.statusCode == 200 &&
-        data['success'] == true) {
-      setState(() {
-        rooms = data['data'] ?? [];
-        isLoading = false;
-      });
-    } else {
+      if (response.statusCode == 200 && data['success'] == true) {
+        setState(() {
+          rooms = data['data'] ?? [];
+          isLoading = false;
+        });
+      } else {
+        setState(() => isLoading = false);
+        showMessage(data['message'] ?? 'Failed to load rooms');
+      }
+    } catch (e) {
       setState(() => isLoading = false);
-      showMessage(data['message'] ?? 'Failed to load rooms');
+      showMessage('Failed to load rooms.');
     }
-  } catch (e) {
-    print('ERROR: $e');
-
-    setState(() => isLoading = false);
-
-    showMessage(e.toString());
   }
-}
 
   Future<void> updateRoomStatus(int allocationId, String action) async {
     if (isUpdating) return;
@@ -78,11 +77,12 @@ Future<void> loadRooms() async {
         },
       );
 
-      // final data = jsonDecode(response.body);
-      debugPrint('HK MY ROOMS STATUS: ${response.statusCode}');
-debugPrint('HK MY ROOMS BODY: ${response.body}');
+      if (response.body.trim().isEmpty) {
+        showMessage('Server returned empty response.');
+        return;
+      }
 
-final data = jsonDecode(response.body);
+      final data = jsonDecode(response.body);
 
       if (response.statusCode == 200 && data['success'] == true) {
         showMessage(data['message'] ?? 'Room updated successfully');
@@ -296,6 +296,37 @@ final data = jsonDecode(response.body);
 
     return Scaffold(
       backgroundColor: const Color(0xfff3f4f6),
+      appBar: AppBar(
+        backgroundColor: const Color(0xff111827),
+        elevation: 0,
+        centerTitle: false,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Colors.white,
+          ),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+        title: const Text(
+          'Housekeeping Rooms',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        actions: [
+          IconButton(
+            onPressed: loadRooms,
+            icon: const Icon(
+              Icons.refresh_rounded,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Stack(
           children: [
@@ -360,23 +391,13 @@ final data = jsonDecode(response.body);
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'My Rooms Today',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              IconButton(
-                onPressed: loadRooms,
-                icon: const Icon(Icons.refresh, color: Colors.white),
-              ),
-            ],
+          const Text(
+            'My Rooms Today',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+            ),
           ),
           const SizedBox(height: 4),
           const Text(
