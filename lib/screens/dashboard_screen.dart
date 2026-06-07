@@ -11,6 +11,9 @@ import 'news_screen.dart';
 import 'maintenance/add_maintenance_screen.dart';
 import 'maintenance/maintenance_home_screen.dart';
 import 'kitchen/kitchen_inventory_screen.dart';
+import 'housekeeping/hk_my_rooms_screen.dart';
+import 'housekeeping/hk_supervisor_progress_screen.dart';
+import 'housekeeping/hk_inspection_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -82,13 +85,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final isKitchenAccess = department.toLowerCase() == 'kitchen' &&
-        ['supervisor', 'chef'].contains(role.toLowerCase());
+        ['supervisor', 'chef', 'head-chef'].contains(role.toLowerCase());
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F8),
       body: CustomScrollView(
         slivers: [
-          // Modern App Bar
           SliverAppBar(
             floating: true,
             pinned: true,
@@ -118,7 +120,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         Text(
-                          isLoading ? 'Loading...' : 'Hello, ${name.split(' ').first} 👋',
+                          isLoading
+                              ? 'Loading...'
+                              : 'Hello, ${name.split(' ').first} 👋',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 28,
@@ -127,7 +131,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          department.isEmpty ? 'Welcome back to the dashboard' : department,
+                          department.isEmpty
+                              ? 'Welcome back to the dashboard'
+                              : department,
                           style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 16,
@@ -149,19 +155,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
 
-          // Content
           SliverPadding(
             padding: const EdgeInsets.all(16),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                // Quick Actions Section
                 _buildSectionHeader('Quick Actions'),
                 const SizedBox(height: 16),
                 _buildQuickActionsGrid(context, isKitchenAccess),
 
                 const SizedBox(height: 32),
 
-                // Features Section
                 _buildSectionHeader('Manage'),
                 const SizedBox(height: 16),
                 _buildFeatureCards(context),
@@ -190,18 +193,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildQuickActionsGrid(BuildContext context, bool isKitchenAccess) {
+    final normalizedDepartment = department.toLowerCase().trim();
+
+    final isHousekeepingAccess =
+        normalizedDepartment == 'housekeeping' ||
+        normalizedDepartment == 'hk' ||
+        normalizedDepartment == 'house keeping';
+
+    final isHkSupervisor = isHousekeepingAccess &&
+    role.toLowerCase().trim() == 'supervisor';
+
     final actions = [
       _ActionItem(
         icon: Icons.people_outline,
         title: 'Staff Directory',
         color: const Color(0xff6366f1),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StaffDirectoryScreen())),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const StaffDirectoryScreen()),
+        ),
       ),
       _ActionItem(
         icon: Icons.calendar_month_outlined,
         title: 'My Rota',
         color: const Color(0xff10b981),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyRotaScreen())),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const MyRotaScreen()),
+        ),
       ),
       _ActionItem(
         icon: Icons.access_time,
@@ -214,17 +233,71 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
       ),
+    ];
+
+    if (isHousekeepingAccess) {
+      actions.add(
+        _ActionItem(
+          icon: Icons.cleaning_services_outlined,
+          title: 'My Rooms',
+          color: const Color(0xff14b8a6),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const HkMyRoomsScreen(),
+            ),
+          ),
+        ),
+      );
+    }
+
+  if (isHkSupervisor) {
+  actions.add(
+    _ActionItem(
+      icon: Icons.dashboard_customize_outlined,
+      title: 'HK Progress',
+      color: const Color(0xff0f766e),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const HkSupervisorProgressScreen(),
+        ),
+      ),
+    ),
+  );
+
+  actions.add(
+    _ActionItem(
+      icon: Icons.fact_check_outlined,
+      title: 'HK Inspection',
+      color: const Color(0xff059669),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const HkInspectionScreen(),
+        ),
+      ),
+    ),
+  );
+}
+    actions.addAll([
       _ActionItem(
         icon: Icons.newspaper_outlined,
         title: 'News',
         color: const Color(0xfff59e0b),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NewsScreen())),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const NewsScreen()),
+        ),
       ),
       _ActionItem(
         icon: Icons.build_outlined,
         title: 'Maintenance',
         color: const Color(0xffef4444),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddMaintenanceScreen())),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AddMaintenanceScreen()),
+        ),
       ),
       _ActionItem(
         icon: Icons.report_problem,
@@ -237,20 +310,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
       ),
-    ];
+    ]);
 
     if (isKitchenAccess) {
-      actions.add(_ActionItem(
-        icon: Icons.inventory_2_outlined,
-        title: 'Inventory',
-        color: const Color(0xff8b5cf6),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KitchenInventoryScreen())),
-      ));
+      actions.add(
+        _ActionItem(
+          icon: Icons.inventory_2_outlined,
+          title: 'Inventory',
+          color: const Color(0xff8b5cf6),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const KitchenInventoryScreen()),
+          ),
+        ),
+      );
     }
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Responsive columns: 2 on mobile, 3 on tablet, 4 on large screens
         int crossAxisCount = 2;
         if (constraints.maxWidth > 600) crossAxisCount = 3;
         if (constraints.maxWidth > 900) crossAxisCount = 4;
@@ -271,7 +348,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Improved Card Styling
   Widget _buildModernCard(_ActionItem action) {
     return Material(
       color: Colors.white,
@@ -330,7 +406,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           title: 'Maintenance Jobs',
           subtitle: 'View and track all maintenance tasks',
           color: const Color(0xFF6366F1),
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MaintenanceHomeScreen())),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const MaintenanceHomeScreen()),
+          ),
         ),
         _buildListTile(
           icon: Icons.analytics_outlined,
@@ -338,7 +417,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           subtitle: 'View attendance and performance reports',
           color: const Color(0xFF10B981),
           onTap: () {
-            // TODO: Add Reports Screen Navigation
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Reports feature coming soon!')),
             );
