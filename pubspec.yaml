@@ -5,7 +5,7 @@ description: "A new Flutter project."
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
 
-version: 1.0.2+15
+version: 1.0.2+16
 
 environment:
   sdk: ^3.11.5
@@ -51,6 +51,3 @@ flutter_launcher_icons:
   adaptive_icon_background: "#0b1b4d"
   adaptive_icon_foreground: "assets/icon/app_icon.png"
   
-  flutter:
-  assets:
-    - assets/animations/
