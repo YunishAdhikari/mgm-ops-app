@@ -1,17 +1,21 @@
-import 'screens/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:app_links/app_links.dart';
+
+import 'screens/login_screen.dart';
 import 'screens/reset_password_screen.dart';
+import 'screens/landing_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
+      statusBarIconBrightness: Brightness.light,
     ),
   );
+
   runApp(const MgmOpsApp());
 }
 
@@ -55,13 +59,13 @@ class _MgmOpsAppState extends State<MgmOpsApp> {
           ),
         );
       }
+    }
 
-      if (uri.scheme == 'mgmops' && uri.host == 'login') {
-        navigatorKey.currentState?.pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-          (route) => false,
-        );
-      }
+    if (uri.scheme == 'mgmops' && uri.host == 'login') {
+      navigatorKey.currentState?.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
     }
   }
 
@@ -74,11 +78,11 @@ class _MgmOpsAppState extends State<MgmOpsApp> {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xff1583ff),
+          seedColor: const Color(0xffdc2626),
           brightness: Brightness.light,
         ),
       ),
-      home: const LoginScreen(),
+      home: const LandingPage(),
     );
   }
 }

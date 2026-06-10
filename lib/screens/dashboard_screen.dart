@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/app_colors.dart';
 import 'login_screen.dart';
-import 'attendance_screen.dart';
+import 'attendance_buffer_page.dart';
 import 'staff_complaint_form_page.dart';
 import 'staff/staff_directory_screen.dart';
 import 'my_rota_screen.dart';
@@ -229,7 +229,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => AttendanceQrScannerPage(authToken: token),
+            builder: (_) => AttendanceBufferPage(authToken: token),
           ),
         ),
       ),

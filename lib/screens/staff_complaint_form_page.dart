@@ -30,6 +30,12 @@ class _StaffComplaintFormPageState extends State<StaffComplaintFormPage> {
 
   bool isSubmitting = false;
 
+  static const primary = Color(0xffdc2626);
+  static const background = Color(0xff09090b);
+  static const cardColor = Color(0xff18181b);
+  static const borderColor = Color(0xff27272a);
+  static const mutedText = Color(0xffa1a1aa);
+
   Future<void> submitComplaint() async {
     if (!formKey.currentState!.validate()) return;
 
@@ -72,7 +78,7 @@ class _StaffComplaintFormPageState extends State<StaffComplaintFormPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(data['message'] ?? 'Failed to submit complaint.'),
-            backgroundColor: Colors.red,
+            backgroundColor: primary,
           ),
         );
       }
@@ -82,7 +88,7 @@ class _StaffComplaintFormPageState extends State<StaffComplaintFormPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Network error: $e'),
-          backgroundColor: Colors.red,
+          backgroundColor: primary,
         ),
       );
     }
@@ -105,13 +111,17 @@ class _StaffComplaintFormPageState extends State<StaffComplaintFormPage> {
 
   @override
   Widget build(BuildContext context) {
-    const primary = Color(0xff1583ff);
-
     return Scaffold(
+      backgroundColor: background,
       appBar: AppBar(
-        title: const Text('Submit Guest Complaint'),
-        backgroundColor: primary,
+        elevation: 0,
+        backgroundColor: background,
         foregroundColor: Colors.white,
+        centerTitle: true,
+        title: const Text(
+          'Guest Complaint',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(18),
@@ -119,36 +129,38 @@ class _StaffComplaintFormPageState extends State<StaffComplaintFormPage> {
           key: formKey,
           child: Column(
             children: [
+              _headerCard(),
+
               _input(
                 controller: guestNameController,
                 label: 'Guest Name',
-                icon: Icons.person,
+                icon: Icons.person_rounded,
                 requiredField: true,
               ),
 
               _input(
                 controller: roomNumberController,
                 label: 'Room Number',
-                icon: Icons.hotel,
+                icon: Icons.hotel_rounded,
               ),
 
               _input(
                 controller: phoneController,
                 label: 'Phone',
-                icon: Icons.phone,
+                icon: Icons.phone_rounded,
                 keyboardType: TextInputType.phone,
               ),
 
               _input(
                 controller: emailController,
                 label: 'Email',
-                icon: Icons.email,
+                icon: Icons.email_rounded,
                 keyboardType: TextInputType.emailAddress,
               ),
 
               _dropdown(
                 label: 'Category',
-                icon: Icons.category,
+                icon: Icons.category_rounded,
                 value: category,
                 items: const [
                   'Maintenance',
@@ -169,7 +181,7 @@ class _StaffComplaintFormPageState extends State<StaffComplaintFormPage> {
 
               _dropdown(
                 label: 'Priority',
-                icon: Icons.priority_high,
+                icon: Icons.priority_high_rounded,
                 value: priority,
                 items: const [
                   'low',
@@ -185,14 +197,14 @@ class _StaffComplaintFormPageState extends State<StaffComplaintFormPage> {
               _input(
                 controller: titleController,
                 label: 'Complaint Title',
-                icon: Icons.title,
+                icon: Icons.title_rounded,
                 requiredField: true,
               ),
 
               _input(
                 controller: descriptionController,
                 label: 'Complaint Details',
-                icon: Icons.notes,
+                icon: Icons.notes_rounded,
                 requiredField: true,
                 maxLines: 5,
               ),
@@ -201,7 +213,7 @@ class _StaffComplaintFormPageState extends State<StaffComplaintFormPage> {
 
               SizedBox(
                 width: double.infinity,
-                height: 54,
+                height: 56,
                 child: ElevatedButton.icon(
                   onPressed: isSubmitting ? null : submitComplaint,
                   icon: isSubmitting
@@ -213,23 +225,89 @@ class _StaffComplaintFormPageState extends State<StaffComplaintFormPage> {
                             color: Colors.white,
                           ),
                         )
-                      : const Icon(Icons.send),
+                      : const Icon(Icons.send_rounded),
                   label: Text(
                     isSubmitting ? 'Submitting...' : 'Submit Complaint',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                    ),
                   ),
                   style: ElevatedButton.styleFrom(
+                    elevation: 12,
                     backgroundColor: primary,
                     foregroundColor: Colors.white,
+                    disabledBackgroundColor: primary.withOpacity(0.45),
+                    disabledForegroundColor: Colors.white70,
+                    shadowColor: primary.withOpacity(0.45),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(18),
                     ),
                   ),
                 ),
               ),
+
+              const SizedBox(height: 24),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _headerCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.35),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: const Row(
+        children: [
+          CircleAvatar(
+            radius: 25,
+            backgroundColor: Color(0x22dc2626),
+            child: Icon(
+              Icons.report_problem_rounded,
+              color: primary,
+              size: 28,
+            ),
+          ),
+          SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Guest Complaint Form',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(height: 5),
+                Text(
+                  'Report guest issues quickly and clearly.',
+                  style: TextStyle(
+                    color: mutedText,
+                    fontSize: 13.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -248,6 +326,8 @@ class _StaffComplaintFormPageState extends State<StaffComplaintFormPage> {
         controller: controller,
         maxLines: maxLines,
         keyboardType: keyboardType,
+        style: const TextStyle(color: Colors.white),
+        cursorColor: primary,
         validator: requiredField
             ? (value) {
                 if (value == null || value.trim().isEmpty) {
@@ -258,11 +338,30 @@ class _StaffComplaintFormPageState extends State<StaffComplaintFormPage> {
             : null,
         decoration: InputDecoration(
           labelText: label,
+          labelStyle: const TextStyle(color: mutedText),
           prefixIcon: Icon(icon),
+          prefixIconColor: primary,
           filled: true,
-          fillColor: const Color(0xfff8fafc),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
+          fillColor: cardColor,
+          errorStyle: const TextStyle(
+            color: Color(0xffff8a8a),
+            fontWeight: FontWeight.w600,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: borderColor),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: primary, width: 1.8),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: primary),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: primary, width: 1.8),
           ),
         ),
       ),
@@ -280,6 +379,9 @@ class _StaffComplaintFormPageState extends State<StaffComplaintFormPage> {
       padding: const EdgeInsets.only(bottom: 14),
       child: DropdownButtonFormField<String>(
         value: value,
+        dropdownColor: cardColor,
+        iconEnabledColor: primary,
+        style: const TextStyle(color: Colors.white),
         items: items.map((item) {
           return DropdownMenuItem(
             value: item,
@@ -287,8 +389,11 @@ class _StaffComplaintFormPageState extends State<StaffComplaintFormPage> {
               item
                   .replaceAll('_', ' ')
                   .split(' ')
-                  .map((word) =>
-                      word.isEmpty ? word : word[0].toUpperCase() + word.substring(1))
+                  .map(
+                    (word) => word.isEmpty
+                        ? word
+                        : word[0].toUpperCase() + word.substring(1),
+                  )
                   .join(' '),
             ),
           );
@@ -296,11 +401,21 @@ class _StaffComplaintFormPageState extends State<StaffComplaintFormPage> {
         onChanged: onChanged,
         decoration: InputDecoration(
           labelText: label,
+          labelStyle: const TextStyle(color: mutedText),
           prefixIcon: Icon(icon),
+          prefixIconColor: primary,
           filled: true,
-          fillColor: const Color(0xfff8fafc),
+          fillColor: cardColor,
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: borderColor),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: primary, width: 1.8),
+          ),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
       ),
