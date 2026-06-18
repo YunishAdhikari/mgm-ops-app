@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../core/app_colors.dart';
 import '../core/constants.dart';
 import 'dashboard_screen.dart';
@@ -18,6 +18,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
+
   bool isLoading = false;
   bool isPasswordVisible = false;
 
@@ -43,11 +44,33 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (response.statusCode == 200 && data['success'] == true) {
         final prefs = await SharedPreferences.getInstance();
+
         await prefs.setString('token', data['token']);
         await prefs.setString('userName', data['user']['name'] ?? '');
         await prefs.setString('userEmail', data['user']['email'] ?? '');
-        await prefs.setString('department', data['user']['department']?['name'] ?? '');
-        await prefs.setString('role', data['user']['role']?['name'] ?? '');
+        await prefs.setString(
+          'department',
+          data['user']['department']?['name'] ?? '',
+        );
+        await prefs.setString(
+          'role',
+          data['user']['role']?['name'] ?? '',
+        );
+
+        final fcmToken = await FirebaseMessaging.instance.getToken();
+
+        if (fcmToken != null) {
+          await http.post(
+            Uri.parse('$baseUrl/save-fcm-token'),
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer ${data['token']}',
+            },
+            body: {
+              'fcm_token': fcmToken,
+            },
+          );
+        }
 
         if (!mounted) return;
 
@@ -102,16 +125,14 @@ class _LoginScreenState extends State<LoginScreen> {
             padding: const EdgeInsets.all(24),
             child: Container(
               width: double.infinity,
-              constraints: BoxConstraints(maxWidth: isWide ? 450 : double.infinity),
+              constraints: BoxConstraints(
+                maxWidth: isWide ? 450 : double.infinity,
+              ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Logo Section
                   _buildHeader(),
-
                   const SizedBox(height: 40),
-
-                  // Login Card
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
@@ -147,8 +168,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 32),
-
-                        // Email Field
                         _buildTextField(
                           controller: emailController,
                           label: 'Email Address',
@@ -156,16 +175,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           keyboardType: TextInputType.emailAddress,
                         ),
                         const SizedBox(height: 16),
-
-                        // Password Field
                         _buildTextField(
                           controller: passwordController,
                           label: 'Password',
                           icon: Icons.lock_outlined,
                           isPassword: true,
                         ),
-                        
-                        // Forgot Password
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
@@ -173,7 +188,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const ForgotPasswordScreen(),
+                                  builder: (_) =>
+                                      const ForgotPasswordScreen(),
                                 ),
                               );
                             },
@@ -187,8 +203,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: 24),
-
-                        // Login Button
                         _buildLoginButton(),
                       ],
                     ),
@@ -288,7 +302,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: Colors.grey[500],
                       ),
                       onPressed: () {
-                        setState(() => isPasswordVisible = !isPasswordVisible);
+                        setState(
+                          () => isPasswordVisible = !isPasswordVisible,
+                        );
                       },
                     )
                   : null,

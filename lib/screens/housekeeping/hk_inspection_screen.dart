@@ -27,6 +27,10 @@ class _HkInspectionScreenState extends State<HkInspectionScreen> {
   }
 
   Future<void> loadRooms() async {
+    if (mounted) {
+      setState(() => isLoading = true);
+    }
+
     final prefs = await SharedPreferences.getInstance();
     token = prefs.getString('token') ?? '';
 
@@ -41,6 +45,8 @@ class _HkInspectionScreenState extends State<HkInspectionScreen> {
 
       final data = jsonDecode(response.body);
 
+      if (!mounted) return;
+
       if (response.statusCode == 200 && data['success'] == true) {
         setState(() {
           rooms = data['data'] ?? [];
@@ -48,13 +54,18 @@ class _HkInspectionScreenState extends State<HkInspectionScreen> {
         });
       } else {
         setState(() => isLoading = false);
+        showMessage(data['message'] ?? 'Failed to load inspection rooms');
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() => isLoading = false);
+      showMessage('Network error. Please try again.');
     }
   }
 
   Future<void> approveRoom(int id) async {
+    if (isUpdating) return;
+
     setState(() => isUpdating = true);
 
     try {
@@ -68,16 +79,24 @@ class _HkInspectionScreenState extends State<HkInspectionScreen> {
 
       final data = jsonDecode(response.body);
 
-      if (response.statusCode == 200) {
-        showMessage(data['message']);
-        loadRooms();
+      if (response.statusCode == 200 && data['success'] == true) {
+        showMessage(data['message'] ?? 'Room approved successfully');
+        await loadRooms();
+      } else {
+        showMessage(data['message'] ?? 'Failed to approve room');
       }
-    } catch (_) {}
-
-    setState(() => isUpdating = false);
+    } catch (e) {
+      showMessage('Network error. Please try again.');
+    } finally {
+      if (mounted) {
+        setState(() => isUpdating = false);
+      }
+    }
   }
 
   Future<void> rejectRoom(int id, String reason) async {
+    if (isUpdating) return;
+
     setState(() => isUpdating = true);
 
     try {
@@ -95,13 +114,19 @@ class _HkInspectionScreenState extends State<HkInspectionScreen> {
 
       final data = jsonDecode(response.body);
 
-      if (response.statusCode == 200) {
-        showMessage(data['message']);
-        loadRooms();
+      if (response.statusCode == 200 && data['success'] == true) {
+        showMessage(data['message'] ?? 'Room rejected successfully');
+        await loadRooms();
+      } else {
+        showMessage(data['message'] ?? 'Failed to reject room');
       }
-    } catch (_) {}
-
-    setState(() => isUpdating = false);
+    } catch (e) {
+      showMessage('Network error. Please try again.');
+    } finally {
+      if (mounted) {
+        setState(() => isUpdating = false);
+      }
+    }
   }
 
   void showRejectDialog(int id) {
@@ -121,21 +146,23 @@ class _HkInspectionScreenState extends State<HkInspectionScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: isUpdating ? null : () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
-                final reason = controller.text.trim();
+              onPressed: isUpdating
+                  ? null
+                  : () {
+                      final reason = controller.text.trim();
 
-                if (reason.isEmpty) {
-                  showMessage('Please enter a reason.');
-                  return;
-                }
+                      if (reason.isEmpty) {
+                        showMessage('Please enter a reason.');
+                        return;
+                      }
 
-                Navigator.pop(context);
-                rejectRoom(id, reason);
-              },
+                      Navigator.pop(context);
+                      rejectRoom(id, reason);
+                    },
               child: const Text('Reject'),
             ),
           ],
@@ -157,8 +184,7 @@ class _HkInspectionScreenState extends State<HkInspectionScreen> {
         .toString()
         .replaceAll('_', ' ')
         .split(' ')
-        .map((e) =>
-            e.isEmpty ? '' : e[0].toUpperCase() + e.substring(1))
+        .map((e) => e.isEmpty ? '' : e[0].toUpperCase() + e.substring(1))
         .join(' ');
   }
 
@@ -176,9 +202,16 @@ class _HkInspectionScreenState extends State<HkInspectionScreen> {
           isLoading
               ? const Center(child: CircularProgressIndicator())
               : rooms.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'No rooms waiting for inspection.',
+                  ? RefreshIndicator(
+                      onRefresh: loadRooms,
+                      child: ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: const [
+                          SizedBox(height: 220),
+                          Center(
+                            child: Text('No rooms waiting for inspection.'),
+                          ),
+                        ],
                       ),
                     )
                   : RefreshIndicator(
@@ -195,25 +228,27 @@ class _HkInspectionScreenState extends State<HkInspectionScreen> {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(18),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                             ),
                             child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
                                   children: [
                                     CircleAvatar(
-                                      backgroundColor:
-                                          const Color(0xff14b8a6)
-                                              .withOpacity(0.1),
+                                      backgroundColor: const Color(0xff14b8a6)
+                                          .withOpacity(0.1),
                                       child: Text(
-                                        room['room_number']
-                                            .toString(),
+                                        room['room_number']?.toString() ?? '-',
                                         style: const TextStyle(
-                                          color:
-                                              Color(0xff0f766e),
-                                          fontWeight:
-                                              FontWeight.bold,
+                                          color: Color(0xff0f766e),
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
                                     ),
@@ -224,22 +259,17 @@ class _HkInspectionScreenState extends State<HkInspectionScreen> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            pretty(
-                                                room['room_status']),
-                                            style:
-                                                const TextStyle(
-                                              fontWeight:
-                                                  FontWeight.bold,
+                                            pretty(room['room_status']),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
                                               fontSize: 16,
                                             ),
                                           ),
                                           Text(
-                                            room['staff_name']
-                                                .toString(),
-                                            style:
-                                                const TextStyle(
-                                              color:
-                                                  Colors.grey,
+                                            room['staff_name']?.toString() ??
+                                                'Unknown Staff',
+                                            style: const TextStyle(
+                                              color: Colors.grey,
                                             ),
                                           ),
                                         ],
@@ -247,68 +277,49 @@ class _HkInspectionScreenState extends State<HkInspectionScreen> {
                                     ),
                                   ],
                                 ),
-
                                 if ((room['notes'] ?? '')
                                     .toString()
                                     .isNotEmpty) ...[
                                   const SizedBox(height: 12),
                                   Container(
                                     width: double.infinity,
-                                    padding:
-                                        const EdgeInsets.all(12),
+                                    padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      color: const Color(
-                                          0xfff9fafb),
-                                      borderRadius:
-                                          BorderRadius.circular(
-                                              12),
+                                      color: const Color(0xfff9fafb),
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
-                                    child: Text(
-                                      room['notes']
-                                          .toString(),
-                                    ),
+                                    child: Text(room['notes'].toString()),
                                   ),
                                 ],
-
                                 const SizedBox(height: 14),
-
                                 Row(
                                   children: [
                                     Expanded(
                                       child: ElevatedButton.icon(
-                                        icon: const Icon(
-                                            Icons.check),
-                                        label:
-                                            const Text('Approve'),
-                                        style:
-                                            ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              Colors.green,
-                                          foregroundColor:
-                                              Colors.white,
+                                        icon: const Icon(Icons.check),
+                                        label: const Text('Approve'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.green,
+                                          foregroundColor: Colors.white,
                                         ),
-                                        onPressed: () =>
-                                            approveRoom(
-                                                room['id']),
+                                        onPressed: isUpdating
+                                            ? null
+                                            : () => approveRoom(room['id']),
                                       ),
                                     ),
                                     const SizedBox(width: 10),
                                     Expanded(
                                       child: ElevatedButton.icon(
-                                        icon: const Icon(
-                                            Icons.close),
-                                        label:
-                                            const Text('Reject'),
-                                        style:
-                                            ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              Colors.red,
-                                          foregroundColor:
-                                              Colors.white,
+                                        icon: const Icon(Icons.close),
+                                        label: const Text('Reject'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.red,
+                                          foregroundColor: Colors.white,
                                         ),
-                                        onPressed: () =>
-                                            showRejectDialog(
-                                                room['id']),
+                                        onPressed: isUpdating
+                                            ? null
+                                            : () =>
+                                                showRejectDialog(room['id']),
                                       ),
                                     ),
                                   ],
@@ -319,7 +330,6 @@ class _HkInspectionScreenState extends State<HkInspectionScreen> {
                         },
                       ),
                     ),
-
           if (isUpdating)
             Container(
               color: Colors.black26,

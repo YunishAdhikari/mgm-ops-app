@@ -28,6 +28,8 @@ class _HkMyRoomsScreenState extends State<HkMyRoomsScreen> {
   }
 
   Future<void> loadRooms() async {
+    if (mounted) setState(() => isLoading = true);
+
     final prefs = await SharedPreferences.getInstance();
     token = prefs.getString('token') ?? '';
 
@@ -41,12 +43,14 @@ class _HkMyRoomsScreenState extends State<HkMyRoomsScreen> {
       );
 
       if (response.body.trim().isEmpty) {
-        setState(() => isLoading = false);
+        if (mounted) setState(() => isLoading = false);
         showMessage('Server returned empty response.');
         return;
       }
 
       final data = jsonDecode(response.body);
+
+      if (!mounted) return;
 
       if (response.statusCode == 200 && data['success'] == true) {
         setState(() {
@@ -58,6 +62,7 @@ class _HkMyRoomsScreenState extends State<HkMyRoomsScreen> {
         showMessage(data['message'] ?? 'Failed to load rooms');
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() => isLoading = false);
       showMessage('Failed to load rooms.');
     }
@@ -92,16 +97,13 @@ class _HkMyRoomsScreenState extends State<HkMyRoomsScreen> {
       }
     } catch (e) {
       showMessage('Connection error. Please check your server.');
-    }
-
-    if (mounted) {
-      setState(() => isUpdating = false);
+    } finally {
+      if (mounted) setState(() => isUpdating = false);
     }
   }
 
   void showMessage(String message) {
     if (!mounted) return;
-
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
@@ -118,7 +120,6 @@ class _HkMyRoomsScreenState extends State<HkMyRoomsScreen> {
 
   bool isDepartureGroup(dynamic status) {
     final value = normalize(status);
-
     return value == 'departure' ||
         value == 'carry_forward' ||
         value == 'room_move';
@@ -126,13 +127,11 @@ class _HkMyRoomsScreenState extends State<HkMyRoomsScreen> {
 
   bool isStayover(dynamic status) {
     final value = normalize(status);
-
     return value == 'stay' || value == 'stayover';
   }
 
   bool isPendingLike(dynamic status) {
     final value = normalize(status);
-
     return value == 'pending' ||
         value == 'assigned' ||
         value == '' ||
@@ -143,15 +142,11 @@ class _HkMyRoomsScreenState extends State<HkMyRoomsScreen> {
     if (selectedStatus == 'all') return rooms;
 
     if (selectedStatus == 'departure') {
-      return rooms.where((room) {
-        return isDepartureGroup(room['room_status']);
-      }).toList();
+      return rooms.where((room) => isDepartureGroup(room['room_status'])).toList();
     }
 
     if (selectedStatus == 'stayover') {
-      return rooms.where((room) {
-        return isStayover(room['room_status']);
-      }).toList();
+      return rooms.where((room) => isStayover(room['room_status'])).toList();
     }
 
     return rooms;
@@ -242,6 +237,17 @@ class _HkMyRoomsScreenState extends State<HkMyRoomsScreen> {
     }).length;
   }
 
+  int countDoneRooms() {
+    return rooms.where((r) {
+      if (r['count_as_cleaned'] == true) return true;
+
+      final value = normalize(r['cleaning_status']);
+      return value == 'cleaned' ||
+          value == 'inspection_pending' ||
+          value == 'inspected';
+    }).length;
+  }
+
   Color statusColor(String status) {
     final value = normalize(status);
 
@@ -253,6 +259,7 @@ class _HkMyRoomsScreenState extends State<HkMyRoomsScreen> {
       case 'in_progress':
         return const Color(0xff2563eb);
       case 'cleaned':
+      case 'inspection_pending':
         return const Color(0xff16a34a);
       case 'dnd':
         return const Color(0xff7c3aed);
@@ -260,6 +267,10 @@ class _HkMyRoomsScreenState extends State<HkMyRoomsScreen> {
         return const Color(0xffdc2626);
       case 'inspected':
         return const Color(0xff0f766e);
+      case 'rejected':
+        return const Color(0xffef4444);
+      case 'maintenance_required':
+        return const Color(0xffea580c);
       default:
         return const Color(0xff6b7280);
     }
@@ -270,6 +281,7 @@ class _HkMyRoomsScreenState extends State<HkMyRoomsScreen> {
 
     if (text.isEmpty || text == 'null') return 'Pending';
     if (normalize(text) == 'assigned') return 'Pending';
+    if (normalize(text) == 'inspection_pending') return 'Waiting Inspection';
 
     return text
         .replaceAll('_', ' ')
@@ -292,7 +304,7 @@ class _HkMyRoomsScreenState extends State<HkMyRoomsScreen> {
   Widget build(BuildContext context) {
     final pending = countByCleaningStatus('pending');
     final progress = countByCleaningStatus('in_progress');
-    final cleaned = countByCleaningStatus('cleaned');
+    final cleaned = countDoneRooms();
 
     return Scaffold(
       backgroundColor: const Color(0xfff3f4f6),
@@ -305,9 +317,7 @@ class _HkMyRoomsScreenState extends State<HkMyRoomsScreen> {
             Icons.arrow_back_ios_new_rounded,
             color: Colors.white,
           ),
-          onPressed: () {
-            Navigator.pop(context);
-          },
+          onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'Housekeeping Rooms',
@@ -319,7 +329,7 @@ class _HkMyRoomsScreenState extends State<HkMyRoomsScreen> {
         ),
         actions: [
           IconButton(
-            onPressed: loadRooms,
+            onPressed: isUpdating ? null : loadRooms,
             icon: const Icon(
               Icons.refresh_rounded,
               color: Colors.white,
@@ -497,6 +507,7 @@ class _HkMyRoomsScreenState extends State<HkMyRoomsScreen> {
     final roomNumber = room['room_number']?.toString() ?? '-';
     final roomStatus = room['room_status']?.toString() ?? '';
     final cleaningStatus = room['cleaning_status']?.toString() ?? 'pending';
+    final displayStatus = room['display_status']?.toString();
     final notes = room['notes']?.toString() ?? '';
 
     final color = statusColor(cleaningStatus);
@@ -548,7 +559,7 @@ class _HkMyRoomsScreenState extends State<HkMyRoomsScreen> {
                   ),
                 ),
               ),
-              _statusBadge(cleaningStatus, color),
+              _statusBadge(displayStatus ?? cleaningStatus, color),
             ],
           ),
           if (notes.isNotEmpty) ...[
@@ -598,7 +609,7 @@ class _HkMyRoomsScreenState extends State<HkMyRoomsScreen> {
     final status = normalize(cleaningStatus);
     final stayover = isStayover(roomStatus);
 
-    if (status == 'cleaned' || status == 'inspected') {
+    if (status == 'inspection_pending') {
       return const Align(
         alignment: Alignment.centerLeft,
         child: Text(
@@ -611,18 +622,31 @@ class _HkMyRoomsScreenState extends State<HkMyRoomsScreen> {
       );
     }
 
+    if (status == 'inspected') {
+      return const Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          'Inspection completed',
+          style: TextStyle(
+            color: Color(0xff0f766e),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+    }
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: [
-        if (isPendingLike(status))
+        if (isPendingLike(status) || status == 'rejected')
           _actionButton(
-            label: 'Start Cleaning',
+            label: status == 'rejected' ? 'Restart Cleaning' : 'Start Cleaning',
             icon: Icons.play_arrow_rounded,
             color: const Color(0xff2563eb),
             onTap: () => updateRoomStatus(id, 'start'),
           ),
-        if (status == 'in_progress' || isPendingLike(status))
+        if (status == 'in_progress' || isPendingLike(status) || status == 'rejected')
           _actionButton(
             label: 'Mark Cleaned',
             icon: Icons.check_rounded,
