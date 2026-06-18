@@ -1,8 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+
 import '../core/app_colors.dart';
 import '../core/constants.dart';
 import 'dashboard_screen.dart';
@@ -23,7 +26,8 @@ class _LoginScreenState extends State<LoginScreen> {
   bool isPasswordVisible = false;
 
   Future<void> login() async {
-    if (emailController.text.isEmpty || passwordController.text.isEmpty) {
+    if (emailController.text.trim().isEmpty ||
+        passwordController.text.trim().isEmpty) {
       _showSnackBar('Please enter email and password', isError: true);
       return;
     }
@@ -33,7 +37,9 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/login'),
-        headers: {'Accept': 'application/json'},
+        headers: {
+          'Accept': 'application/json',
+        },
         body: {
           'email': emailController.text.trim(),
           'password': passwordController.text.trim(),
@@ -44,8 +50,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (response.statusCode == 200 && data['success'] == true) {
         final prefs = await SharedPreferences.getInstance();
+        final token = data['token']?.toString() ?? '';
 
-        await prefs.setString('token', data['token']);
+        await prefs.setString('token', token);
         await prefs.setString('userName', data['user']['name'] ?? '');
         await prefs.setString('userEmail', data['user']['email'] ?? '');
         await prefs.setString(
@@ -57,20 +64,7 @@ class _LoginScreenState extends State<LoginScreen> {
           data['user']['role']?['name'] ?? '',
         );
 
-        final fcmToken = await FirebaseMessaging.instance.getToken();
-
-        if (fcmToken != null) {
-          await http.post(
-            Uri.parse('$baseUrl/save-fcm-token'),
-            headers: {
-              'Accept': 'application/json',
-              'Authorization': 'Bearer ${data['token']}',
-            },
-            body: {
-              'fcm_token': fcmToken,
-            },
-          );
-        }
+        await saveFcmTokenSafely(token);
 
         if (!mounted) return;
 
@@ -82,12 +76,69 @@ class _LoginScreenState extends State<LoginScreen> {
         if (!mounted) return;
         _showSnackBar(data['message'] ?? 'Login failed', isError: true);
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('============== LOGIN ERROR ==============');
+      debugPrint(e.toString());
+      debugPrint(stackTrace.toString());
+      debugPrint('=========================================');
+
       if (!mounted) return;
       _showSnackBar('Connection error. Please try again.', isError: true);
+    } finally {
+      if (mounted) setState(() => isLoading = false);
     }
+  }
 
-    if (mounted) setState(() => isLoading = false);
+  Future<void> saveFcmTokenSafely(String authToken) async {
+    try {
+      debugPrint('============== FCM SAVE START ==============');
+
+      final messaging = FirebaseMessaging.instance;
+
+      await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
+      if (Platform.isIOS) {
+        final apnsToken = await messaging.getAPNSToken();
+        debugPrint('APNS Token: $apnsToken');
+
+        if (apnsToken == null) {
+          debugPrint('APNS token is not ready yet. Login will continue.');
+          return;
+        }
+      }
+
+      final fcmToken = await messaging.getToken();
+      debugPrint('FCM Token: $fcmToken');
+
+      if (fcmToken == null) {
+        debugPrint('FCM token is null. Login will continue.');
+        return;
+      }
+
+      final saveResponse = await http.post(
+        Uri.parse('$baseUrl/save-fcm-token'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $authToken',
+        },
+        body: {
+          'fcm_token': fcmToken,
+        },
+      );
+
+      debugPrint('Save FCM Status: ${saveResponse.statusCode}');
+      debugPrint('Save FCM Body: ${saveResponse.body}');
+      debugPrint('============== FCM SAVE END ==============');
+    } catch (e, stackTrace) {
+      debugPrint('============== FCM SAVE ERROR ==============');
+      debugPrint(e.toString());
+      debugPrint(stackTrace.toString());
+      debugPrint('===========================================');
+    }
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
